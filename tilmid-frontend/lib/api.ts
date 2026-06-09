@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
 })
 
 export const authAPI = {
-  register: (data: any) => api.post('/auth/register', data),
+  register: (data: unknown) => api.post('/auth/register', data),
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
   getMe: () => api.get('/auth/me'),
@@ -39,6 +39,18 @@ export const adminAPI = {
   getStudents: () => api.get('/admin/students'),
   getMentors: () => api.get('/admin/mentors'),
   getMentorWorkload: () => api.get('/admin/mentors/workload'),
+}
+
+export const teacherAPI = {
+  getProfile: () => api.get('/teachers/profile'),
+  getClasses: () => api.get('/teachers/classes'),
+  getClassStudents: (classId: string) => api.get(`/teachers/classes/${classId}/students`),
+  markAttendance: (data: unknown) => api.post('/teachers/attendance', data),
+  getStudentAttendance: (studentId: string) => api.get(`/teachers/attendance/student/${studentId}`),
+  submitMonthlyReport: (data: unknown) => api.post('/teachers/reports', data),
+  getMyReports: () => api.get('/teachers/reports'),
+  getMyGrades: () => api.get('/teachers/grades'),
+  createGrade: (data: unknown) => api.post('/grades', data),
 }
 
 export default api
