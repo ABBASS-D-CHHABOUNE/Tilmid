@@ -4,6 +4,11 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const gradeRoutes = require('./routes/grade.routes');
+const studentRoutes = require('./routes/student.routes');
+const adminRoutes = require('./routes/admin.routes');
+const teacherRoutes = require('./routes/teacher.routes');
+const mentorRoutes = require('./routes/mentor.routes');
+const parentRoutes = require('./routes/parent.routes');
 
 const app = express();
 
@@ -14,6 +19,13 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/grades', gradeRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/mentors', mentorRoutes);
+app.use('/api/parents', parentRoutes);
+
+
 
 app.get('/', (req, res) => {
   res.json({ message: 'TILMID Backend Running!' });
