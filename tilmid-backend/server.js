@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin.routes');
 const teacherRoutes = require('./routes/teacher.routes');
 const mentorRoutes = require('./routes/mentor.routes');
 const parentRoutes = require('./routes/parent.routes');
+const assignmentRoutes = require('./routes/assignment.routes')
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/mentors', mentorRoutes);
 app.use('/api/parents', parentRoutes);
+app.use('/api/assignments', assignmentRoutes)
 
 
 

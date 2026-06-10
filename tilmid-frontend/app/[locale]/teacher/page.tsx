@@ -29,8 +29,8 @@ interface Grade {
 
 interface Report {
   _id: string
-  studentId: {
-    userId: {
+  studentId?: {
+    userId?: {
       firstName: string
       lastName: string
     }
@@ -272,7 +272,7 @@ export default function TeacherDashboard() {
                 {grades.map((grade) => (
                   <tr key={grade._id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-800">
-                      {grade.studentId.userId.firstName} {grade.studentId.userId.lastName}
+                      {grade.studentId?.userId?.firstName || 'Unknown'} {grade.studentId?.userId?.lastName || 'Student'}
                     </td>
                     <td className="px-6 py-4 text-gray-800">{grade.subject}</td>
                     <td className="px-6 py-4 font-bold text-gray-800">{grade.score}/20</td>
@@ -310,7 +310,7 @@ export default function TeacherDashboard() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-gray-800">
-                      {report.studentId.userId.firstName} {report.studentId.userId.lastName}
+                      {report.studentId?.userId?.firstName || 'Unknown'} {report.studentId?.userId?.lastName || 'Student'}
                     </p>
                     <p className="text-sm text-gray-600">
                       {new Date(report.createdAt).toLocaleDateString()}
