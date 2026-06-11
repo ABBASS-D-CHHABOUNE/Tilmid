@@ -52,5 +52,15 @@ export const teacherAPI = {
   getMyGrades: () => api.get('/teachers/grades'),
   createGrade: (data: unknown) => api.post('/grades', data),
 }
+export const mentorAPI = {
+  getProfile: () => api.get('/mentors/profile'),
+  getStudents: () => api.get('/mentors/students'),
+  getStudentPerformance: (studentId: string) => api.get(`/mentors/students/${studentId}/performance`),
+  createSession: (data: unknown) => api.post('/mentors/sessions', data),
+  getSessions: (studentId: string) => api.get(`/mentors/sessions/${studentId}`),
+  createRating: (data: unknown) => api.post('/mentors/ratings', data),
+  getRatings: () => api.get('/mentors/ratings'),
+  getAlerts: () => api.get('/mentors/alerts'),
+}
 
 export default api
