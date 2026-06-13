@@ -1,28 +1,19 @@
-const express = require('express');
-const mentorController = require('../controllers/mentor.controller');
-const authMiddleware = require('../middleware/auth.middleware');
+const express = require('express')
+const mentorController = require('../controllers/mentor.controller')
+const authMiddleware = require('../middleware/auth.middleware')
 
-const router = express.Router();
+const router = express.Router()
 
-router.use(authMiddleware);
+router.use(authMiddleware)
 
-// Mentor profile & caseload
-router.get('/profile', mentorController.getProfile);
+router.get('/profile', mentorController.getProfile)
+router.get('/students', mentorController.getStudents)
+router.get('/students/:studentId/performance', mentorController.getStudentPerformance)
+router.post('/sessions', mentorController.createSession)
+router.get('/sessions', mentorController.getSessions)
+router.post('/ratings', mentorController.createRating)
+router.get('/ratings', mentorController.getRatings)
+router.get('/alerts', mentorController.getAlerts)
+router.get('/statistics', mentorController.getStatistics)
 
-// Students
-router.get('/students', mentorController.getAssignedStudents);
-router.get('/students/:studentId/performance', mentorController.getStudentPerformance);
-
-// Mentorship sessions
-router.post('/sessions', mentorController.logSession);
-router.get('/sessions/:studentId', mentorController.getStudentSessions);
-
-// Ratings
-router.post('/ratings', mentorController.submitRating);
-router.get('/ratings', mentorController.getRatings);
-
-// Alerts
-router.get('/alerts', mentorController.getCriticalAlerts);
-router.put('/alerts/:alertId/read', mentorController.markAlertRead);
-
-module.exports = router;
+module.exports = router
