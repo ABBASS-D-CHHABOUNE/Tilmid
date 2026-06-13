@@ -1,25 +1,35 @@
-class GradingEngine {
-  static calculateMoyenne(subjects) {
-    if (!subjects || subjects.length === 0) {
-      throw new Error('No subject scores provided');
-    }
+// Moroccan Grading System
+// Score: 0-20
+// Threshold: 10/20
 
-    let totalWeightedScore = 0;
-    let totalCoefficients = 0;
-
-    subjects.forEach((subject) => {
-      totalWeightedScore += subject.score * subject.coefficient;
-      totalCoefficients += subject.coefficient;
-    });
-
-    const moyenne = parseFloat((totalWeightedScore / totalCoefficients).toFixed(2));
-    const status = moyenne >= 10.0 ? 'ADMIS' : 'REFUSE';
-    const isRefused = status === 'REFUSE';
-    const failingSubjects = subjects.filter((s) => s.score < 10.0).map((s) => s.subjectName);
-    const alertRequired = isRefused || failingSubjects.length > 0;
-
-    return { moyenne, status, isRefused, failingSubjects, alertRequired };
+const calculateMoroccanGrade = (score) => {
+  if (score >= 10) {
+    return 'ADMIS' // Passed
+  } else {
+    return 'REFUSE' // Failed
   }
 }
 
-module.exports = GradingEngine;
+const calculateAverage = (grades) => {
+  if (grades.length === 0) return 0
+
+  const totalWeighted = grades.reduce((sum, grade) => {
+    return sum + (grade.score * grade.coefficient)
+  }, 0)
+
+  const totalCoefficient = grades.reduce((sum, grade) => {
+    return sum + grade.coefficient
+  }, 0)
+
+  return (totalWeighted / totalCoefficient).toFixed(2)
+}
+
+const getGradeStatus = (average) => {
+  return average >= 10 ? 'ADMIS' : 'REFUSE'
+}
+
+module.exports = {
+  calculateMoroccanGrade,
+  calculateAverage,
+  getGradeStatus
+}

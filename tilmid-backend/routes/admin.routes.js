@@ -1,32 +1,35 @@
-const express = require('express');
-const adminController = require('../controllers/admin.controller');
-const authMiddleware = require('../middleware/auth.middleware');
-const roleMiddleware = require('../middleware/role.middleware');
+const express = require('express')
+const adminController = require('../controllers/admin.controller')
+const authMiddleware = require('../middleware/auth.middleware')
 
-const router = express.Router();
+const router = express.Router()
 
-// All admin routes require authentication + ADMIN role
-router.use(authMiddleware);
-router.use(roleMiddleware(['ADMIN']));
+router.use(authMiddleware)
 
-// KPIs
-router.get('/kpis', adminController.getKPIs);
+// Profile
+router.get('/profile', adminController.getProfile)
 
-// Students
-router.get('/students', adminController.getStudents);
-router.get('/students/unassigned', adminController.getUnassignedStudents);
+// Users
+router.post('/users', adminController.createUser)
+router.get('/users', adminController.getAllUsers)
+router.get('/users/:userId', adminController.getUserById)
+router.put('/users/:userId', adminController.updateUser)
+router.delete('/users/:userId', adminController.deleteUser)
 
-// Mentors
-router.get('/mentors', adminController.getMentors);
-router.get('/mentors/workload', adminController.getMentorWorkload);
-router.post('/assign-mentor', adminController.assignMentor);
-
-// Teachers
-router.get('/teachers', adminController.getTeachers);
+// Classes
+router.post('/classes', adminController.createClass)
+router.get('/classes', adminController.getAllClasses)
+router.put('/classes/:classId', adminController.updateClass)
+router.delete('/classes/:classId', adminController.deleteClass)
 
 // Reports
-router.get('/reports/pending', adminController.getPendingReports);
-router.put('/reports/:reportId/approve', adminController.approveReport);
-router.put('/reports/:reportId/reject', adminController.rejectReport);
+router.get('/reports', adminController.getReports)
+router.put('/reports/:reportId/approve', adminController.approveReport)
+router.put('/reports/:reportId/reject', adminController.rejectReport)
 
-module.exports = router;
+// Analytics
+router.get('/dashboard/kpis', adminController.getDashboardKPIs)
+router.get('/analytics/failing-students', adminController.getFailingStudents)
+router.get('/analytics/stats', adminController.getSystemStats)
+
+module.exports = router

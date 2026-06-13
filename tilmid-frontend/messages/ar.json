@@ -129,6 +129,13 @@
     "download": "تحميل",
     "upload": "رفع",
     "view": "عرض",
-    "back": "العودة"
+    "back": "العودة" , 
+    "subjects": {
+  "mathematics": "الرياضيات",
+  "french": "اللغة الفرنسية",
+  "english": "اللغة الإنجليزية",
+  "science": "العلوم",
+  "history": "التاريخ"
+}
   }
 }

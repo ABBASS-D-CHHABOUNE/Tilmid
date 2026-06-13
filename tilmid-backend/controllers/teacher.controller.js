@@ -1,205 +1,373 @@
-const Teacher = require('../models/Teacher');
-const User = require('../models/User');
-const Class = require('../models/Class');
-const Student = require('../models/Student');
-const Grade = require('../models/Grade');
-const Attendance = require('../models/Attendance');
-const MonthlyReport = require('../models/MonthlyReport');
+const Teacher = require('../models/Teacher')
+const User = require('../models/User')
+const Grade = require('../models/Grade')
+const Class = require('../models/Class')
+const Student = require('../models/Student')
+const Attendance = require('../models/Attendance')
+const MonthlyReport = require('../models/MonthlyReport')
+const { calculateMoroccanGrade } = require('../lib/grading')
 
-// Get teacher profile
+// Get Teacher Profile
 exports.getProfile = async (req, res) => {
   try {
-    const teacher = await Teacher.findOne({ userId: req.userId })
-      .populate('userId', 'email firstName lastName');
-
+    const teacher = await Teacher.findOne({ userId: req.user._id }).populate('userId', 'firstName lastName email specialization')
+    
     if (!teacher) {
-      return res.status(404).json({ message: 'Teacher not found' });
+      return res.status(404).json({ message: 'Teacher not found' })
     }
-
-    res.json(teacher);
+    
+    res.json(teacher)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get all classes (optional - for now returning empty)
+// Get Teacher's Classes
 exports.getClasses = async (req, res) => {
   try {
-    const classes = await Class.find();
-    res.json({
-      count: classes.length,
-      classes
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
 
-// Get students in a class
+    const classes = await Class.find({ _id: { $in: teacher.classesAssigned || [] } })
+    
+    res.json(classes || [])
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// Get Class Students
 exports.getClassStudents = async (req, res) => {
   try {
-    const { classId } = req.params;
+    const { classId } = req.params
+    
+    const classData = await Class.findById(classId)
+    if (!classData) {
+      return res.status(404).json({ message: 'Class not found' })
+    }
 
-    const students = await Student.find({ classId })
-      .populate('userId', 'email firstName lastName');
+    const students = await Student.find({ classId }).populate('userId', 'firstName lastName email')
+    
+    res.json(students)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// Create Grade (Add New Grade)
+exports.createGrade = async (req, res) => {
+  try {
+    const { studentId, subject, score, coefficient, trimester, academicYear } = req.body
+
+    // Validation
+    if (!studentId || !subject || score === undefined || !coefficient) {
+      return res.status(400).json({ message: 'Missing required fields' })
+    }
+
+    if (score < 0 || score > 20) {
+      return res.status(400).json({ message: 'Score must be between 0 and 20' })
+    }
+
+    // Get teacher info
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
+
+    // Calculate Moroccan grade status
+    const status = calculateMoroccanGrade(score)
+
+    // Create grade
+    const grade = new Grade({
+      studentId,
+      teacherId: teacher._id,
+      subject,
+      score,
+      coefficient,
+      status,
+      trimester: trimester || 1,
+      academicYear: academicYear || new Date().getFullYear(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+
+    await grade.save()
+
+    res.status(201).json({
+      message: 'Grade created successfully',
+      grade
+    })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// Get Teacher's Grades
+exports.getGrades = async (req, res) => {
+  try {
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
+
+    const grades = await Grade.find({ teacherId: teacher._id })
+      .populate('studentId', 'firstName lastName')
+      .sort({ createdAt: -1 })
+    
+    res.json(grades)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// Update Grade
+exports.updateGrade = async (req, res) => {
+  try {
+    const { gradeId } = req.params
+    const { score, coefficient, trimester } = req.body
+
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
+
+    const grade = await Grade.findById(gradeId)
+    if (!grade) {
+      return res.status(404).json({ message: 'Grade not found' })
+    }
+
+    // Verify teacher owns this grade
+    if (grade.teacherId.toString() !== teacher._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this grade' })
+    }
+
+    // Update fields
+    if (score !== undefined) {
+      if (score < 0 || score > 20) {
+        return res.status(400).json({ message: 'Score must be between 0 and 20' })
+      }
+      grade.score = score
+      grade.status = calculateMoroccanGrade(score)
+    }
+    
+    if (coefficient !== undefined) grade.coefficient = coefficient
+    if (trimester !== undefined) grade.trimester = trimester
+    
+    grade.updatedAt = new Date()
+    await grade.save()
 
     res.json({
-      classId,
-      count: students.length,
-      students
-    });
+      message: 'Grade updated successfully',
+      grade
+    })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Mark attendance for a student
+// Delete Grade
+exports.deleteGrade = async (req, res) => {
+  try {
+    const { gradeId } = req.params
+
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
+
+    const grade = await Grade.findById(gradeId)
+    if (!grade) {
+      return res.status(404).json({ message: 'Grade not found' })
+    }
+
+    // Verify teacher owns this grade
+    if (grade.teacherId.toString() !== teacher._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this grade' })
+    }
+
+    await Grade.deleteOne({ _id: gradeId })
+
+    res.json({ message: 'Grade deleted successfully' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+// Mark Attendance
 exports.markAttendance = async (req, res) => {
   try {
-    const { studentId, classId, date, status, notes } = req.body;
+    const { studentId, classId, status, date } = req.body
 
-    if (!studentId || !date || !status) {
-      return res.status(400).json({ message: 'studentId, date, and status required' });
+    // Validation
+    if (!studentId || !classId || !status || !date) {
+      return res.status(400).json({ message: 'Missing required fields' })
     }
 
     if (!['PRESENT', 'ABSENT', 'LATE'].includes(status)) {
-      return res.status(400).json({ message: 'Status must be PRESENT, ABSENT, or LATE' });
+      return res.status(400).json({ message: 'Invalid status. Use PRESENT, ABSENT, or LATE' })
     }
 
-    const teacher = await Teacher.findOne({ userId: req.userId });
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
 
+    // Check if attendance already exists for this date
+    const existingAttendance = await Attendance.findOne({ studentId, date: new Date(date) })
+    
+    if (existingAttendance) {
+      existingAttendance.status = status
+      existingAttendance.updatedAt = new Date()
+      await existingAttendance.save()
+      return res.json({ message: 'Attendance updated', attendance: existingAttendance })
+    }
+
+    // Create new attendance
     const attendance = new Attendance({
       studentId,
       classId,
-      date: new Date(date),
+      teacherId: teacher._id,
       status,
-      recordedBy: teacher._id,
-      notes
-    });
+      date: new Date(date),
+      createdAt: new Date()
+    })
 
-    await attendance.save();
+    await attendance.save()
 
-    res.json({
-      message: 'Attendance recorded',
+    res.status(201).json({
+      message: 'Attendance marked successfully',
       attendance
-    });
+    })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get attendance for a student
-exports.getStudentAttendance = async (req, res) => {
+// Get Attendance for Class
+exports.getAttendance = async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const { classId } = req.params
 
-    const attendance = await Attendance.find({ studentId })
-      .populate('studentId', 'firstName lastName')
-      .sort({ date: -1 });
-
-    const stats = {
-      total: attendance.length,
-      present: attendance.filter(a => a.status === 'PRESENT').length,
-      absent: attendance.filter(a => a.status === 'ABSENT').length,
-      late: attendance.filter(a => a.status === 'LATE').length
-    };
-
-    res.json({
-      studentId,
-      stats,
-      records: attendance
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get attendance for a class
-exports.getClassAttendance = async (req, res) => {
-  try {
-    const { classId } = req.params;
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
 
     const attendance = await Attendance.find({ classId })
       .populate('studentId', 'firstName lastName')
-      .sort({ date: -1 });
+      .sort({ date: -1 })
 
-    res.json({
-      classId,
-      count: attendance.length,
-      records: attendance
-    });
+    res.json(attendance)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Submit monthly report
-exports.submitMonthlyReport = async (req, res) => {
+// Submit Monthly Report
+exports.submitReport = async (req, res) => {
   try {
-    const { studentId, month, year, content } = req.body;
+    const { classId, month, year, notes, studentsPerformance } = req.body
 
-    if (!studentId || !month || !year || !content) {
-      return res.status(400).json({ message: 'All fields required' });
+    // Validation
+    if (!classId || !month || !year) {
+      return res.status(400).json({ message: 'Missing required fields' })
     }
 
-    const teacher = await Teacher.findOne({ userId: req.userId });
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
 
+    // Check if report already exists
+    const existingReport = await MonthlyReport.findOne({ classId, month, year })
+    if (existingReport) {
+      return res.status(400).json({ message: 'Report already submitted for this month' })
+    }
+
+    // Create report
     const report = new MonthlyReport({
-      studentId,
+      classId,
       teacherId: teacher._id,
       month,
       year,
-      content,
-      status: 'PENDING'
-    });
+      notes: notes || '',
+      studentsPerformance: studentsPerformance || [],
+      status: 'PENDING',
+      submittedAt: new Date(),
+      createdAt: new Date()
+    })
 
-    await report.save();
+    await report.save()
 
-    res.json({
+    res.status(201).json({
       message: 'Report submitted successfully',
       report
-    });
+    })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get submitted reports by teacher
-exports.getMyReports = async (req, res) => {
+// Get Teacher's Reports
+exports.getReports = async (req, res) => {
   try {
-    const teacher = await Teacher.findOne({ userId: req.userId });
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
 
     const reports = await MonthlyReport.find({ teacherId: teacher._id })
-      .populate('studentId', 'firstName lastName')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      count: reports.length,
-      reports
-    });
+      .populate('classId', 'name')
+      .sort({ submittedAt: -1 })
+    
+    res.json(reports)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get grade entry dashboard (grades teacher has entered)
-exports.getMyGrades = async (req, res) => {
+// Get Student Performance (for a specific student)
+exports.getStudentPerformance = async (req, res) => {
   try {
-    const grades = await Grade.find({ teacherId: req.userId })
-      .populate('studentId', 'firstName lastName')
-      .sort({ createdAt: -1 });
+    const { studentId } = req.params
 
-    const stats = {
-      total: grades.length,
-      admis: grades.filter(g => g.status === 'ADMIS').length,
-      refuse: grades.filter(g => g.status === 'REFUSE').length
-    };
+    const teacher = await Teacher.findOne({ userId: req.user._id })
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' })
+    }
+
+    const grades = await Grade.find({ studentId, teacherId: teacher._id }).sort({ createdAt: -1 })
+    
+    if (grades.length === 0) {
+      return res.status(404).json({ message: 'No grades found for this student' })
+    }
+
+    // Calculate average
+    const totalScore = grades.reduce((sum, g) => sum + (g.score * g.coefficient), 0)
+    const totalCoefficient = grades.reduce((sum, g) => sum + g.coefficient, 0)
+    const average = (totalScore / totalCoefficient).toFixed(2)
+
+    // Count passing/failing
+    const passing = grades.filter(g => g.status === 'ADMIS').length
+    const failing = grades.filter(g => g.status === 'REFUSE').length
 
     res.json({
-      stats,
-      grades
-    });
+      studentId,
+      grades,
+      summary: {
+        average,
+        totalGrades: grades.length,
+        passing,
+        failing,
+        status: average >= 10 ? 'ADMIS' : 'REFUSE'
+      }
+    })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}

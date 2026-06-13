@@ -1,24 +1,30 @@
-const express = require('express');
-const studentController = require('../controllers/student.controller');
-const authMiddleware = require('../middleware/auth.middleware');
+const express = require('express')
+const studentController = require('../controllers/student.controller')
+const authMiddleware = require('../middleware/auth.middleware')
 
-const router = express.Router();
+const router = express.Router()
 
-router.use(authMiddleware);
+router.use(authMiddleware)
 
-// Student profile
-router.get('/profile', studentController.getProfile);
+// Profile
+router.get('/profile', studentController.getProfile)
 
-// Student grades
-router.get('/grades', studentController.getGrades);
+// Grades & Performance
+router.get('/grades', studentController.getGrades)
+router.get('/average', studentController.getAverage)
+router.get('/performance', studentController.getPerformanceSummary)
 
-// Student moyenne
-router.get('/moyenne', studentController.getMoyenne);
+// Alerts
+router.get('/alerts', studentController.getAlerts)
 
-// Student alerts
-router.get('/alerts', studentController.getAlerts);
+// Mentor
+router.get('/mentor', studentController.getMentor)
 
-// Mark alert as read
-router.put('/alerts/:alertId/read', studentController.markAlertRead);
+// Attendance
+router.get('/attendance', studentController.getAttendance)
 
-module.exports = router;
+// Assignments
+router.get('/assignments', studentController.getAssignments)
+router.get('/assignments/:assignmentId/download', studentController.downloadAssignment)
+
+module.exports = router

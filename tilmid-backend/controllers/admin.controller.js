@@ -1,236 +1,177 @@
-const User = require('../models/User');
-const Student = require('../models/Student');
-const Teacher = require('../models/Teacher');
-const Mentor = require('../models/Mentor');
-const Admin = require('../models/Admin');
-const Grade = require('../models/Grade');
-const Alert = require('../models/Alert');
-const MentorshipAssignment = require('../models/MentorshipAssignment');
-const MonthlyReport = require('../models/MonthlyReport');
+const User = require('../models/User')
+const Student = require('../models/Student')
+const Teacher = require('../models/Teacher')
+const Grade = require('../models/Grade')
+const Class = require('../models/Class')
+const MonthlyReport = require('../models/MonthlyReport')
+const bcrypt = require('bcryptjs')
 
-// Get KPIs for dashboard
-exports.getKPIs = async (req, res) => {
+exports.getProfile = async (req, res) => {
   try {
-    const totalStudents = await User.countDocuments({ role: 'STUDENT' });
-    const totalTeachers = await User.countDocuments({ role: 'TEACHER' });
-    const totalMentors = await User.countDocuments({ role: 'MENTOR' });
-    const totalParents = await User.countDocuments({ role: 'PARENT' });
-    const pendingReports = await MonthlyReport.countDocuments({ status: 'PENDING' });
-    const actionRequiredReports = await MonthlyReport.countDocuments({ status: 'ACTION_REQUIRED' });
-    const totalAlerts = await Alert.countDocuments({ isRead: false });
-    const totalGrades = await Grade.countDocuments();
-
-    res.json({
-      totalStudents,
-      totalTeachers,
-      totalMentors,
-      totalParents,
-      pendingReports,
-      actionRequiredReports,
-      totalAlerts,
-      totalGrades,
-      timestamp: new Date()
-    });
+    const user = await User.findById(req.user._id)
+    res.json({ message: 'Admin profile', user })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get unassigned students (no mentor)
-exports.getUnassignedStudents = async (req, res) => {
+exports.createUser = async (req, res) => {
   try {
-    const allStudents = await Student.find()
-      .populate('userId', 'email firstName lastName')
-      .populate('classId', 'name level');
-
-    const assignedStudentIds = await MentorshipAssignment.find({ isActive: true })
-      .distinct('studentId');
-
-    const unassignedStudents = allStudents.filter(
-      student => !assignedStudentIds.includes(student._id.toString())
-    );
-
-    res.json({
-      count: unassignedStudents.length,
-      students: unassignedStudents
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Assign mentor to student
-exports.assignMentor = async (req, res) => {
-  try {
-    const { mentorId, studentId } = req.body;
-
-    if (!mentorId || !studentId) {
-      return res.status(400).json({ message: 'mentorId and studentId required' });
+    const { email, password, firstName, lastName, role } = req.body
+    if (!email || !password || !firstName || !lastName || !role) {
+      return res.status(400).json({ message: 'Missing fields' })
     }
-
-    // Check if already assigned
-    const existing = await MentorshipAssignment.findOne({ mentorId, studentId, isActive: true });
-    if (existing) {
-      return res.status(400).json({ message: 'Student already assigned to this mentor' });
-    }
-
-    // Check mentor caseload
-    const mentor = await Mentor.findById(mentorId);
-    if (mentor.currentCaseload >= mentor.maxCaseload) {
-      return res.status(400).json({ message: 'Mentor caseload is full' });
-    }
-
-    // Create assignment
-    const assignment = new MentorshipAssignment({
-      mentorId,
-      studentId,
-      isActive: true
-    });
-
-    await assignment.save();
-
-    // Update mentor caseload
-    mentor.currentCaseload += 1;
-    await mentor.save();
-
-    res.json({
-      message: 'Mentor assigned successfully',
-      assignment
-    });
+    const existing = await User.findOne({ email })
+    if (existing) return res.status(400).json({ message: 'User exists' })
+    const hash = await bcrypt.hash(password, 10)
+    const user = new User({ email, passwordHash: hash, firstName, lastName, role, isActive: true })
+    await user.save()
+    res.status(201).json({ message: 'User created', user })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get mentor workload
-exports.getMentorWorkload = async (req, res) => {
+exports.getAllUsers = async (req, res) => {
   try {
-    const mentors = await Mentor.find()
-      .populate('userId', 'firstName lastName email');
-
-    const mentorWorkload = mentors.map(mentor => ({
-      mentorId: mentor._id,
-      mentorName: `${mentor.userId.firstName} ${mentor.userId.lastName}`,
-      email: mentor.userId.email,
-      currentCaseload: mentor.currentCaseload,
-      maxCaseload: mentor.maxCaseload,
-      loadPercentage: Math.round((mentor.currentCaseload / mentor.maxCaseload) * 100),
-      status: mentor.currentCaseload >= mentor.maxCaseload ? 'FULL' : 
-              mentor.currentCaseload > (mentor.maxCaseload * 0.8) ? 'NEAR_CAPACITY' : 'OK',
-      availableSlots: mentor.maxCaseload - mentor.currentCaseload
-    }));
-
-    res.json(mentorWorkload);
+    const users = await User.find().select('-passwordHash')
+    res.json(users)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get pending reports for moderation
-exports.getPendingReports = async (req, res) => {
+exports.getUserById = async (req, res) => {
   try {
-    const reports = await MonthlyReport.find({ status: { $in: ['PENDING', 'ACTION_REQUIRED'] } })
-      .populate('studentId', 'firstName lastName')
-      .populate('teacherId', 'firstName lastName')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      count: reports.length,
-      reports
-    });
+    const user = await User.findById(req.params.userId).select('-passwordHash')
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    res.json(user)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Approve report
+exports.updateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.userId, req.body, { new: true })
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    res.json({ message: 'User updated', user })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.deleteUser = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.userId)
+    res.json({ message: 'User deleted' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.createClass = async (req, res) => {
+  try {
+    const { name, level, academicYear, capacity } = req.body
+    const newClass = new Class({ name, level, academicYear, capacity: capacity || 30 })
+    await newClass.save()
+    res.status(201).json({ message: 'Class created', class: newClass })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.getAllClasses = async (req, res) => {
+  try {
+    const classes = await Class.find()
+    res.json(classes)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.updateClass = async (req, res) => {
+  try {
+    const classData = await Class.findByIdAndUpdate(req.params.classId, req.body, { new: true })
+    if (!classData) return res.status(404).json({ message: 'Class not found' })
+    res.json({ message: 'Class updated', class: classData })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.deleteClass = async (req, res) => {
+  try {
+    await Class.findByIdAndDelete(req.params.classId)
+    res.json({ message: 'Class deleted' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+exports.getReports = async (req, res) => {
+  try {
+    const reports = await MonthlyReport.find().sort({ submittedAt: -1 })
+    res.json(reports)
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
 exports.approveReport = async (req, res) => {
   try {
-    const { reportId } = req.params;
-    const { notes } = req.body;
-
-    const report = await MonthlyReport.findByIdAndUpdate(
-      reportId,
-      {
-        status: 'APPROVED',
-        reviewedById: req.userId,
-        reviewNotes: notes,
-        reviewedAt: new Date()
-      },
-      { new: true }
-    );
-
-    res.json({ message: 'Report approved', report });
+    const report = await MonthlyReport.findByIdAndUpdate(req.params.reportId, { status: 'APPROVED', reviewedAt: new Date() }, { new: true })
+    if (!report) return res.status(404).json({ message: 'Report not found' })
+    res.json({ message: 'Report approved', report })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Reject report
 exports.rejectReport = async (req, res) => {
   try {
-    const { reportId } = req.params;
-    const { notes } = req.body;
-
-    const report = await MonthlyReport.findByIdAndUpdate(
-      reportId,
-      {
-        status: 'ACTION_REQUIRED',
-        reviewedById: req.userId,
-        reviewNotes: notes,
-        reviewedAt: new Date()
-      },
-      { new: true }
-    );
-
-    res.json({ message: 'Report flagged for action', report });
+    const report = await MonthlyReport.findByIdAndUpdate(req.params.reportId, { status: 'REJECTED', reviewedAt: new Date() }, { new: true })
+    if (!report) return res.status(404).json({ message: 'Report not found' })
+    res.json({ message: 'Report rejected', report })
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get all teachers
-exports.getTeachers = async (req, res) => {
+exports.getDashboardKPIs = async (req, res) => {
   try {
-    const teachers = await Teacher.find()
-      .populate('userId', 'email firstName lastName isActive');
-
-    res.json({
-      count: teachers.length,
-      teachers
-    });
+    const kpis = {
+      totalStudents: await Student.countDocuments(),
+      totalTeachers: await Teacher.countDocuments(),
+      totalGrades: await Grade.countDocuments(),
+      pendingReports: await MonthlyReport.countDocuments({ status: 'PENDING' }),
+      failingStudents: await Grade.countDocuments({ status: 'REFUSE' })
+    }
+    res.json(kpis)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get all mentors
-exports.getMentors = async (req, res) => {
+exports.getFailingStudents = async (req, res) => {
   try {
-    const mentors = await Mentor.find()
-      .populate('userId', 'email firstName lastName isActive');
-
-    res.json({
-      count: mentors.length,
-      mentors
-    });
+    const failing = await Grade.find({ status: 'REFUSE' }).populate('studentId', 'firstName lastName')
+    res.json(failing)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
-// Get all students
-exports.getStudents = async (req, res) => {
+exports.getSystemStats = async (req, res) => {
   try {
-    const students = await Student.find()
-      .populate('userId', 'email firstName lastName')
-      .populate('classId', 'name level');
-
-    res.json({
-      count: students.length,
-      students
-    });
+    const stats = {
+      totalGrades: await Grade.countDocuments(),
+      passingGrades: await Grade.countDocuments({ status: 'ADMIS' }),
+      failingGrades: await Grade.countDocuments({ status: 'REFUSE' }),
+      pendingReports: await MonthlyReport.countDocuments({ status: 'PENDING' })
+    }
+    res.json(stats)
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}

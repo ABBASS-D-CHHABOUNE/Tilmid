@@ -29,6 +29,7 @@ app.use('/api/assignments', assignmentRoutes)
 
 
 
+
 app.get('/', (req, res) => {
   res.json({ message: 'TILMID Backend Running!' });
 });

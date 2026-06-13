@@ -129,6 +129,13 @@
     "download": "Télécharger",
     "upload": "Télécharger",
     "view": "Voir",
-    "back": "Retour"
+    "back": "Retour" , 
+    "subjects": {
+  "mathematics": "Mathématiques",
+  "french": "Français",
+  "english": "Anglais",
+  "science": "Sciences",
+  "history": "Histoire"
+}
   }
 }

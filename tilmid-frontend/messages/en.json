@@ -129,6 +129,13 @@
     "download": "Download",
     "upload": "Upload",
     "view": "View",
-    "back": "Back"
+    "back": "Back" , 
+    "subjects": {
+    "mathematics": "Mathematics",
+    "french": "French",
+    "english": "English",
+    "science": "Science",
+    "history": "History"
+      }
   }
 }
